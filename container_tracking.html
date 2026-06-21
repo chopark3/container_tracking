@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>컨테이너 화물 추적</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f4f3ef;
+    --surface: #ffffff;
+    --border: #e0ded8;
+    --border-strong: #c8c5bc;
+    --text: #1a1916;
+    --text-2: #6b6860;
+    --text-3: #a8a59e;
+    --accent: #1a1916;
+    --green-bg: #e8f5ee;
+    --green-fg: #1a6636;
+    --yellow-bg: #fef9e7;
+    --yellow-fg: #7d5a00;
+    --red-bg: #fdecea;
+    --red-fg: #9b1c1c;
+    --blue-bg: #e8f0fa;
+    --blue-fg: #1a4fa8;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+
+  .layout { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 7px 18px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); background: var(--bg); }
+  .tab.on { background: var(--accent); color: #fff; }
+  .tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e0ded8;
+    color: var(--text-2);
+    font-size: 10px;
+    font-weight: 600;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .tab.on .tab-badge { background: rgba(255,255,255,.25); color: #fff; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  input[type="text"], input[type="date"], input[type="number"] {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0 18px;
+    height: 38px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 14px;
+    height: 34px;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all .15s;
+  }
+  .btn-ghost:hover { background: var(--bg); border-color: var(--border-strong); color: var(--text); }
+  .btn-danger { color: #9b1c1c; border-color: #f5c6c6; }
+  .btn-danger:hover { background: var(--red-bg); }
+
+  .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    color: var(--text-3);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* BL 입력 */
+  .bl-wrap { position: relative; margin-bottom: 10px; }
+  .bl-wrap input {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    height: 46px;
+    padding-right: 140px;
+    text-transform: uppercase;
+  }
+  .bl-badge {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    pointer-events: none;
+    white-space: nowrap;
+    display: none;
+  }
+  .bl-badge.found  { display: flex; background: var(--green-bg); color: var(--green-fg); }
+  .bl-badge.unkn   { display: flex; background: var(--bg); color: var(--text-3); border: 1px solid var(--border); }
+
+  /* 선사 그리드 */
+  .carrier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .c-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    user-select: none;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .c-card:hover { border-color: var(--border-strong); }
+  .c-card.sel   { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .c-card.auto  { border-color: #1a6636; box-shadow: 0 0 0 1px #1a6636; }
+  .auto-pill {
+    position: absolute; top: -7px; right: 6px;
+    background: #1a6636; color: #fff;
+    font-size: 9px; font-weight: 600;
+    padding: 1px 7px; border-radius: 999px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .c-logo {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; font-weight: 600;
+    flex-shrink: 0; letter-spacing: -.3px;
+  }
+  .c-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .c-ft   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  /* 결과 패널 */
+  .result-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .result-panel.show { display: block; }
+  .result-head {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .result-body { padding: 18px; }
+  .iframe-notice {
+    background: var(--blue-bg);
+    border-radius: var(--radius-sm);
+    padding: 13px 16px;
+    font-size: 13px;
+    color: var(--blue-fg);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    line-height: 1.65;
+  }
+  .open-big {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    padding: 13px 20px; width: 100%;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: opacity .15s; margin-bottom: 10px;
+  }
+  .open-big:hover { opacity: .85; }
+  .copy-strip {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 9px 14px;
+  }
+  .copy-bl-text { font-family: 'IBM Plex Mono', monospace; font-size: 14px; flex: 1; }
+  .copy-btn {
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 10px;
+    font-size: 12px; cursor: pointer; color: var(--text-2);
+    font-family: 'IBM Plex Sans KR', sans-serif; transition: all .15s;
+  }
+  .copy-btn:hover { background: var(--surface); color: var(--text); }
+
+  .action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .notice { font-size: 12px; color: var(--text-3); margin-top: 8px; min-height: 18px; font-family: 'IBM Plex Mono', monospace; }
+  .notice.ok  { color: var(--green-fg); }
+  .notice.err { color: var(--red-fg); }
+
+  /* 저장 목록 */
+  /* 테이블 레이아웃 */
+  .list-table-hdr, .list-table-row {
+    display: grid;
+    grid-template-columns: 28px 80px 130px 50px 80px 80px 70px 80px 120px 1fr 110px;
+    gap: 0;
+    align-items: center;
+    min-width: 920px;
+  }
+  .list-table-hdr {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    letter-spacing: .05em; text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .list-table-hdr span, .list-table-row > * {
+    padding: 0 6px;
+  }
+  .list-table-row {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    transition: background .1s;
+  }
+  .list-table-row:last-child { border-bottom: none; }
+  .list-table-row:hover { background: var(--bg); }
+  .list-table-row.sel-row { background: var(--blue-bg); }
+  .list-table-hdr .lt-chk, .list-table-row .lt-chk { padding: 0; }
+
+  /* 편집 행 */
+  .list-edit-row {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    background: var(--bg);
+  }
+
+  /* 테이블 스크롤 */
+  #list-body { overflow-x: auto; }
+
+  /* 편집 그리드 */
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ef-label { font-family: 'IBM Plex Mono',monospace; font-size:10px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); margin-bottom:4px; }
+  .ef input { height:32px; font-size:13px; }
+
+  /* 체크박스 커스텀 */
+  .chk-wrap {
+    display:inline-flex; align-items:center;
+    cursor:pointer; position:relative;
+    width:20px; height:20px; flex-shrink:0;
+  }
+  .chk-real {
+    position:absolute; inset:0;
+    opacity:0; cursor:pointer;
+    width:100%; height:100%; margin:0; z-index:1;
+  }
+  .chk-box {
+    width:16px; height:16px; border-radius:3px;
+    border:1.5px solid var(--border-strong);
+    background:var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; transition:all .12s; pointer-events:none;
+  }
+  .chk-real:checked ~ .chk-box,
+  .chk-real:checked + .chk-box {
+    background:var(--accent); border-color:var(--accent);
+  }
+  .chk-real:checked ~ .chk-box::after,
+  .chk-real:checked + .chk-box::after {
+    content:''; display:block;
+    width:8px; height:5px;
+    border-left:2px solid #fff; border-bottom:2px solid #fff;
+    transform:rotate(-45deg) translateY(-1px);
+  }
+  .chk-wrap:hover .chk-box { border-color:var(--accent); }
+  .chk-box.chk-checked { background:var(--accent); border-color:var(--accent); }
+  .chk-box.chk-checked::after {
+    content:''; display:block; width:8px; height:5px;
+    border-left:2px solid #fff; border-bottom:2px solid #fff;
+    transform:rotate(-45deg) translateY(-1px);
+  }
+  .hdr-row { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .hdr-row span { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; }
+  .ship-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ship-row:last-child { border-bottom: none; }
+  .bl-text { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .tag { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .tag-ok   { background: var(--green-bg);  color: var(--green-fg); }
+  .tag-warn { background: var(--yellow-bg); color: var(--yellow-fg); }
+  .tag-over { background: var(--red-bg);    color: var(--red-fg); }
+  .tag-grey { background: var(--bg); color: var(--text-3); border: 1px solid var(--border); }
+
+  /* 프리타임 */
+  .ft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .ft-row { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: var(--radius-sm); padding: 9px 12px; }
+  .ft-row label { font-size: 13px; color: var(--text-2); flex: 1; }
+  .ft-row input { width: 56px; text-align: center; }
+
+  .info-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13px; color: var(--text-2); display: flex; gap: 8px; align-items: flex-start; margin-bottom: 16px; line-height: 1.6; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-3); }
+  .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  .empty p { font-size: 13px; }
+
+  svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+
+  /* 정렬 헤더 */
+  .sort-hdr {
+    cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 3px;
+    white-space: nowrap;
+  }
+  .sort-hdr:hover { color: var(--text); }
+  .sort-icon { font-size: 10px; color: var(--text-3); transition: color .15s; }
+  .sort-icon.asc  { color: var(--accent); }
+  .sort-icon.desc { color: var(--accent); }
+  .sel-row { background: var(--blue-bg) !important; }
+
+  /* 2단 레이아웃 */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+    align-items: start;
+  }
+  .col-left  { min-width: 0; }
+  .col-right { position: sticky; top: 72px; }
+
+  /* 저장 폼 */
+  .save-form-card { padding: 18px; }
+  .sf-field { margin-bottom: 12px; }
+  .sf-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 5px;
+  }
+  .sf-field input[type=text],
+  .sf-field input[type=date],
+  .sf-field input[type=number],
+  .sf-field select { height: 34px; font-size: 13px; width: 100%; }
+
+  textarea {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+    resize: vertical;
+    line-height: 1.6;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  /* 컨테이너 번호 태그 */
+  .cntr-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .cntr-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 7px;
+    color: var(--text-2); white-space: nowrap;
+  }
+
+  @media (max-width: 680px) {
+    .two-col { grid-template-columns: 1fr; }
+    .col-right { position: static; }
+  }
+
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo"><div class="logo-dot"></div>CONTAINER TRACKER</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div id="header-alert" style="display:none;align-items:center;gap:6px;font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="nav('list')" title="만료 임박 화물 보기"></div>
+    <div style="font-size:12px;color:var(--text-3);font-family:'IBM Plex Mono',monospace">다빈우드</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <div class="tabs">
+    <button class="tab on" onclick="nav('track')">화물 조회</button>
+    <button class="tab" onclick="nav('list')">저장 목록 <span class="tab-badge" id="cnt">0</span></button>
+    <button class="tab" onclick="nav('ft')">프리타임 설정</button>
+  </div>
+
+  <!-- 조회 탭 -->
+  <div id="p-track">
+    <div class="two-col">
+
+      <!-- 왼쪽: BL 입력 + 선사 그리드 + 결과 -->
+      <div class="col-left">
+        <div class="card">
+          <div class="label">B/L 번호 입력</div>
+          <div class="bl-wrap">
+            <input type="text" id="bl" placeholder="BL 입력 시 선사 자동 감지"
+              oninput="onBl()" onkeydown="if(event.key==='Enter')go()" autocomplete="off" />
+            <div class="bl-badge" id="bl-badge"></div>
+          </div>
+          <div class="action-row" style="margin-top:10px">
+            <button class="btn" onclick="go()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              선사 사이트 이동
+            </button>
+            <button class="btn-ghost" onclick="openUnipass()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              유니패스 조회
+            </button>
+          </div>
+          <div class="notice" id="notice">BL 번호를 입력하면 선사가 자동 감지됩니다</div>
+        </div>
+
+        <!-- 결과 패널 -->
+        <div class="result-panel" id="result-panel">
+          <div class="result-head">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div id="r-logo" class="c-logo" style="width:36px;height:36px;border-radius:7px;font-size:10px"></div>
+              <div>
+                <div style="font-size:13px;font-weight:600" id="r-cname"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600" id="r-bl"></div>
+              </div>
+            </div>
+            <button class="btn-ghost" onclick="document.getElementById('result-panel').classList.remove('show')">닫기</button>
+          </div>
+          <div class="result-body">
+            <div id="copy-guide" style="background:var(--green-bg);border:1px solid #b7dfc6;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;display:none">
+              <div style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--green-fg);margin-bottom:4px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                BL 번호가 클립보드에 복사됐습니다
+              </div>
+              <div style="font-size:12px;color:var(--green-fg);line-height:1.5">선사 사이트 BL 입력란에 <strong>Ctrl+V</strong> 로 붙여넣기 하세요.</div>
+            </div>
+            <div id="copy-guide-manual" style="background:var(--blue-bg);border:1px solid #b5cef5;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;display:none">
+              <div style="font-size:12px;color:var(--blue-fg);line-height:1.5">선사 사이트가 열렸습니다. 아래 BL 번호를 복사해서 붙여넣으세요.</div>
+            </div>
+            <div class="copy-strip" style="margin-bottom:10px">
+              <span style="font-size:12px;color:var(--text-3);white-space:nowrap">BL 번호</span>
+              <span class="copy-bl-text" id="r-copy-bl" style="font-size:14px"></span>
+              <button class="copy-btn" id="copy-btn" onclick="copyBl()" style="padding:5px 12px;font-size:12px">복사</button>
+            </div>
+            <a id="r-link" href="#" target="_blank" onclick="openSite(event)" class="open-big" style="margin-bottom:0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span id="r-btn-txt">선사 공식 사이트 열기</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="label">선사 선택 (BL 입력 시 자동 선택, 직접 클릭도 가능)</div>
+        <div class="carrier-grid" id="c-grid"></div>
+      </div>
+
+      <!-- 오른쪽: 저장 폼 -->
+      <div class="col-right">
+        <div class="card save-form-card">
+          <div class="label" style="margin-bottom:12px">화물 저장</div>
+
+          <!-- 선사 + BL 표시 -->
+          <div class="save-info-row" id="save-info-row">
+            <div id="save-carrier-badge" style="display:none;align-items:center;gap:6px;margin-bottom:10px">
+              <div id="save-c-logo" class="c-logo" style="width:26px;height:26px;border-radius:5px;font-size:8px;font-weight:700;font-family:'IBM Plex Mono',monospace"></div>
+              <span id="save-c-name" style="font-size:13px;font-weight:600"></span>
+            </div>
+            <div id="save-bl-display" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;min-height:22px;letter-spacing:.02em"></div>
+          </div>
+
+          <!-- ETA -->
+          <div class="sf-field">
+            <div class="sf-label">ETA (입항 예정일)</div>
+            <input type="text" id="sf-eta" placeholder="날짜 직접 입력 또는 붙여넣기"
+              oninput="onEtaInput(this)" onpaste="onEtaPaste(event)" />
+            <div id="sf-eta-parsed" style="font-size:11px;margin-top:4px;min-height:16px;font-family:'IBM Plex Mono',monospace;color:var(--green-fg)"></div>
+          </div>
+
+          <!-- 선사 프리타임 -->
+          <div class="sf-field">
+            <div class="sf-label">선사 프리타임 (일)</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="sf-ft-carrier" min="1" max="30" placeholder="일" style="width:80px" />
+              <span style="font-size:12px;color:var(--text-3)">일</span>
+              <div id="sf-ft-expire" style="font-size:12px;color:var(--text-3);margin-left:4px"></div>
+            </div>
+          </div>
+
+          <!-- CY 프리타임 -->
+          <div class="sf-field">
+            <div class="sf-label">CY 프리타임 (일)</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="sf-ft-cy" min="1" max="30" placeholder="일" value="7" style="width:80px" />
+              <span style="font-size:12px;color:var(--text-3)">일</span>
+              <div id="sf-cy-expire" style="font-size:12px;color:var(--text-3);margin-left:4px"></div>
+            </div>
+          </div>
+
+          <!-- 입항 CY -->
+          <div class="sf-field">
+            <div class="sf-label">입항 CY</div>
+            <select id="sf-cy" style="height:34px;font-size:13px;width:100%">
+              <option value="">선택하세요</option>
+              <option value="ICT">ICT (인천컨테이너터미널 / PSA)</option>
+              <option value="E1CT">E1CT (E1컨테이너터미널)</option>
+              <option value="HJIT">HJIT (한진인천컨테이너터미널)</option>
+              <option value="SNCT">SNCT (선광신컨테이너터미널)</option>
+              <option value="IFPC">IFPC (인천국제여객부두터미널)</option>
+              <option value="경인항">경인항 (아라인천터미널)</option>
+            </select>
+          </div>
+
+          <!-- 컨테이너 수량 -->
+          <div class="sf-field">
+            <div class="sf-label">컨테이너 수량</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:11px;font-weight:600;color:var(--text-2);width:28px">40F</span>
+                <input type="number" id="sf-qty40" min="0" max="999" placeholder="0" value="" style="width:64px;text-align:center" />
+                <span style="font-size:12px;color:var(--text-3)">컨</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:11px;font-weight:600;color:var(--text-2);width:28px">20F</span>
+                <input type="number" id="sf-qty20" min="0" max="999" placeholder="0" value="" style="width:64px;text-align:center" />
+                <span style="font-size:12px;color:var(--text-3)">컨</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 메모 -->
+          <div class="sf-field">
+            <div class="sf-label">메모</div>
+            <input type="text" id="sf-memo" placeholder="예) 수입자 홍길동, 5월 3차 입항" maxlength="80" />
+          </div>
+
+          <!-- 컨테이너 번호 -->
+          <div class="sf-field">
+            <div class="sf-label">컨테이너 번호</div>
+            <textarea id="sf-cntrs" rows="3"
+              placeholder="여러 개 입력 가능&#10;쉼표·공백·줄바꿈 모두 허용&#10;예) CAAU9616911, FFAU4200015"
+              oninput="onCntrsInput()"
+              style="min-height:72px"></textarea>
+            <div id="sf-cntrs-tags" class="cntr-tags"></div>
+          </div>
+
+          <button class="btn" style="width:100%;margin-top:4px" onclick="saveInline()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+            목록에 저장
+          </button>
+          <div id="sf-notice" style="font-size:12px;margin-top:8px;min-height:18px;font-family:'IBM Plex Mono',monospace"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 저장 목록 탭 -->
+  <div id="p-list" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <!-- 툴바 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+        <div style="font-size:15px;font-weight:600">저장된 화물</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-ghost" id="sel-toggle-btn" onclick="toggleSelMode()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            선택
+          </button>
+          <button class="btn-ghost btn-danger" id="sel-delete-btn" style="display:none" onclick="deleteSelected()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            삭제 (<span id="sel-count">0</span>)
+          </button>
+          <button class="btn-ghost" id="sel-cancel-btn" style="display:none" onclick="cancelSelMode()">취소</button>
+          <button class="btn-ghost btn-danger" onclick="clearAll()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            전체 삭제
+          </button>
+          <button class="btn-ghost" onclick="exportCSV()" title="CSV 내보내기">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV 내보내기
+          </button>
+          <label class="btn-ghost" style="cursor:pointer" title="CSV 가져오기 (내보낸 파일 그대로 업로드)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            CSV 가져오기
+            <input type="file" accept=".csv" style="display:none" onchange="importCSV(this)">
+          </label>
+        </div>
+      </div>
+      <!-- 테이블 헤더 -->
+      <div class="list-table-hdr">
+        <span class="lt-chk"></span>
+        <span>선사</span>
+        <span>B/L 번호</span>
+        <span>수량</span>
+        <span class="sort-hdr" onclick="sortBy('eta')" title="ETA 기준 정렬">
+          ETA <span class="sort-icon" id="sort-icon-eta">↕</span>
+        </span>
+        <span class="sort-hdr" onclick="sortBy('ftCarrier')" title="선사 프리타임 만료일 기준 정렬">
+          선사 D-day <span class="sort-icon" id="sort-icon-ftCarrier">↕</span>
+        </span>
+        <span class="sort-hdr" onclick="sortBy('ftCy')" title="CY 프리타임 만료일 기준 정렬">
+          CY D-day <span class="sort-icon" id="sort-icon-ftCy">↕</span>
+        </span>
+        <span>입항 CY</span>
+        <span>컨테이너</span>
+        <span>메모</span>
+        <span></span>
+      </div>
+      <div id="list-body"></div>
+    </div>
+  </div>
+
+    <!-- 프리타임 탭 -->
+  <div id="p-ft" style="display:none">
+    <div class="card">
+      <div class="label" style="margin-bottom:12px">운송사별 프리타임 기준 (일)</div>
+      <div class="info-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        만료일 = ETA + 프리타임 일수. D-day 마이너스 = 초과 상태.
+      </div>
+      <div class="ft-grid" id="ft-body"></div>
+      <div style="margin-top:16px;display:flex;align-items:center;gap:10px">
+        <button class="btn" onclick="saveFT()">저장</button>
+        <span id="ft-ok" style="font-size:12px;color:var(--green-fg);font-family:'IBM Plex Mono',monospace"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════
+   선사 데이터
+══════════════════════════════ */
+const CARRIERS = [
+  { id:'maersk',   name:'Maersk',      short:'MAER', color:'#1A5FA8', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.maersk.com/tracking/${encodeURIComponent(b)}`,
+    pat: [/^MAEU/i,/^MRKU/i,/^MRSU/i,/^SEAU/i,/^SEAL/i], ft:5 },
+  { id:'msc',      name:'MSC',         short:'MSC',  color:'#cc2200', bg:'#fde8e4', directBL:true,
+    urlFn: b => `https://www.msc.com/en/track-a-shipment?agencyPath=kor&bl=${encodeURIComponent(b)}`,
+    pat: [/^MSCU/i,/^MEDU/i,/^MSBU/i], ft:4 },
+  { id:'hmm',      name:'HMM',         short:'HMM',  color:'#004b9b', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do?blNo=${encodeURIComponent(b)}&searchType=BL`,
+    pat: [/^HDMU/i,/^HMMU/i], ft:5 },
+  { id:'evergreen',name:'Evergreen',   short:'EVER', color:'#006633', bg:'#d8f0e3', directBL:true,
+    urlFn: b => `https://www.evergreen-line.com/service/cargo-tracking/?blno=${encodeURIComponent(b)}`,
+    pat: [/^EGLV/i,/^EGHU/i,/^EMCU/i], ft:5 },
+  { id:'yangming', name:'Yang Ming',   short:'YML',  color:'#c8202f', bg:'#fde8e4', directBL:true,
+    urlFn: b => `https://www.yangming.com/e-service/Track_Trace/track_trace_cargo_tracking.aspx?blno=${encodeURIComponent(b)}`,
+    pat: [/^YMLU/i,/^YMPR/i,/^YMSG/i,/^YMJA/i], ft:4 },
+  { id:'cmacgm',   name:'CMA CGM',     short:'CMA',  color:'#003087', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.cma-cgm.com/ebusiness/tracking/search?SearchBy=BillOfLading&Reference=${encodeURIComponent(b)}`,
+    pat: [/^CMAU/i,/^CGMU/i,/^CGHU/i,/^CGTU/i,/^SEGU/i,/^APHU/i], ft:5 },
+  { id:'one',      name:'ONE',         short:'ONE',  color:'#c8006e', bg:'#fce4f0', directBL:true,
+    urlFn: b => `https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking?trakNoList=${encodeURIComponent(b)}&trakNo=${encodeURIComponent(b)}`,
+    pat: [/^ONEY/i,/^ONEU/i,/^TGHU/i,/^NYKU/i,/^MOLU/i,/^KKFU/i], ft:5 },
+  { id:'oocl',     name:'OOCL',        short:'OOCL', color:'#003087', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.oocl.com/Korea/kor/localinformation/eservices/cargotracking/Pages/cargotracking.aspx?blno=${encodeURIComponent(b)}`,
+    pat: [/^OOLU/i,/^OOCU/i], ft:5 },
+  { id:'cosco',    name:'COSCO',       short:'CSCO', color:'#b00000', bg:'#fde8e4', directBL:true,
+    urlFn: b => `https://elines.coscoshipping.com/ebusiness/cargotracking?trackNo=${encodeURIComponent(b)}`,
+    pat: [/^COSU/i,/^COLU/i,/^CBHU/i], ft:5 },
+  { id:'hapag',    name:'Hapag-Lloyd', short:'HAPG', color:'#d4721a', bg:'#fef0dc', directBL:true,
+    urlFn: b => `https://www.hapag-lloyd.com/en/online-business/tracing/tracing-by-booking.html?blno=${encodeURIComponent(b)}`,
+    pat: [/^HLCU/i,/^HASU/i,/^SUDU/i], ft:5 },
+  { id:'sitc',     name:'SITC',        short:'SITC', color:'#1a5fa8', bg:'#ddeaf8', directBL:false,
+    urlFn: b => `https://ebusiness.sitcline.com/#/topMenu/cargoTrack`,
+    pat: [/^SITC/i,/^SITU/i,/^SITG/i,/^SITP/i,/^SITN/i], ft:4 },
+  { id:'kmtc',     name:'KMTC',        short:'KMTC', color:'#004b9b', bg:'#ddeaf8', directBL:false,
+    urlFn: b => `https://www.ekmtc.com/index.html#/cargo-tracking`,
+    pat: [/^KMTU/i,/^KMTC/i], ft:5 },
+  { id:'pil',      name:'PIL',         short:'PIL',  color:'#0059a5', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.pilship.com/digital-solutions/?tab=customer&id=track-trace&label=containerTandT&module=TrackTraceBL&refNo=${encodeURIComponent(b)}`,
+    pat: [/^PCIU/i,/^PCRU/i,/^SRG/i,/^PIL/i], ft:5 },
+  { id:'wanhai',   name:'Wan Hai',     short:'WHN',  color:'#004b9b', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.wanhai.com/views/cargoTracking/CargoTracking.xhtml?blNo=${encodeURIComponent(b)}`,
+    pat: [/^WHLC/i,/^WHLU/i,/^\d{3}[A-Z]{2}\d+/i], ft:4 },
+  { id:'smline',   name:'SM Line',     short:'SM',   color:'#00529b', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.smlines.com/smlines/tracking?blNo=${encodeURIComponent(b)}`,
+    pat: [/^SMLM/i,/^SMLU/i], ft:5 },
+  { id:'rcl',      name:'RCL',         short:'RCL',  color:'#c8202f', bg:'#fde8e4', directBL:true,
+    urlFn: b => `https://www.rclgroup.com/tracking?blNo=${encodeURIComponent(b)}`,
+    pat: [/^RCLU/i,/^REGU/i], ft:4 },
+  { id:'sinokor',  name:'Sinokor',     short:'SNKR', color:'#1a3a6b', bg:'#ddeaf8', directBL:false,
+    urlFn: b => `https://ebiz.sinokor.co.kr/Tracking`,
+    pat: [/^SNKO/i,/^SKLU/i,/^SKHU/i,/^SKRU/i], ft:4 },
+  { id:'zim',      name:'ZIM',         short:'ZIM',  color:'#005BAA', bg:'#ddeaf8', directBL:true,
+    urlFn: b => `https://www.zim.com/tools/track-a-shipment?consnumber=${encodeURIComponent(b)}`,
+    pat: [/^ZIMU/i,/^ZCSU/i,/^ZGHU/i], ft:5 },
+  { id:'sealead',  name:'SeaLead',     short:'SLD',  color:'#006d6d', bg:'#d4f0ef', directBL:false,
+    urlFn: b => `https://www.sea-lead.com/tracking`,
+    pat: [/^SLKB/i,/^SLS/i,/^SLDN/i,/^SLDX/i], ft:4 },
+  { id:'namsung',  name:'Namsung',     short:'NSG',  color:'#003087', bg:'#ddeaf8', directBL:false,
+    urlFn: b => `https://ebiz.namsung.co.kr/`,
+    pat: [/^NSMU/i,/^NSSL/i], ft:4 },
+  { id:'taiyoung', name:'Tai Young',   short:'TYS',  color:'#8B0000', bg:'#fde8e4', directBL:false,
+    urlFn: b => `http://www.tys.co.kr/service/tracking.asp`,
+    pat: [/^TYSC/i,/^TYSL/i], ft:4 },
+  { id:'heung-a',  name:'Heung-A',     short:'HAS',  color:'#c8202f', bg:'#fde8e4', directBL:true,
+    urlFn: b => `https://www.heung-a.com/ebiz/trackTrace/trackTraceSearch.do?searchType=BL&searchWord=${encodeURIComponent(b)}`,
+    pat: [/^HASL/i,/^HASU2/i], ft:4 },
+  { id:'tslines',  name:'TS Lines',    short:'TSL',  color:'#1a5fa8', bg:'#ddeaf8', directBL:false,
+    urlFn: b => `https://www.tslines.com/en/tracking?nowmenu=search_by_bl_number`,
+    pat: [/^TSLU/i,/^TSTU/i,/^\d{10,13}$/], ft:4 },
+  { id:'easline',  name:'EAS Line',    short:'EAS',  color:'#2e7d32', bg:'#d8f0e3', directBL:false,
+    urlFn: b => `http://www.easline.co.kr/common/main.aspx`,
+    pat: [/^EASU/i,/^EASL/i,/^EAS/i,/^\d{9,11}$/], ft:5 },
+  { id:'hede',     name:'Hede',        short:'HEDE', color:'#6a1b9a', bg:'#f3e5f5', directBL:false,
+    urlFn: b => `http://elines.hedehk.com/cargoDynamicEN`,
+    pat: [/^HHINC/i,/^HHIE/i,/^HHI/i], ft:5 },
+  { id:'goldstar', name:'Gold Star Line', short:'GSL', color:'#b8860b', bg:'#fef9e0', directBL:true,
+    urlFn: b => `https://www.gslserver.com/en/trackingSearch.do?searchType=BL&blNo=${encodeURIComponent(b)}`,
+    pat: [/^GSLU/i,/^GSLR/i,/^GSLN/i,/^GSL/i], ft:5 },
+];
+
+
+/* ══════════════════════════════
+   상태
+══════════════════════════════ */
+let sel      = null;
+let editIdx  = -1;
+let selMode  = false;
+let selSet   = new Set();
+let ft       = JSON.parse(localStorage.getItem('ft_v3') || 'null') || Object.fromEntries(CARRIERS.map(c=>[c.id,c.ft]));
+let ships    = JSON.parse(localStorage.getItem('ships_v3') || '[]');
+
+/* ══════════════════════════════
+   날짜 파싱
+══════════════════════════════ */
+const MONTHS = {
+  jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
+  january:1,february:2,march:3,april:4,june:6,july:7,august:8,
+  september:9,october:10,november:11,december:12
+};
+
+function etaToISO(raw) {
+  if (!raw) return '';
+  raw = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
+  // 19 May 2026 or 19 May 2026 23:00
+  let m = raw.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (m) {
+    const mo = MONTHS[m[2].toLowerCase()];
+    if (mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  }
+  // May 19, 2026
+  m = raw.match(/([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/);
+  if (m) {
+    const mo = MONTHS[m[1].toLowerCase()];
+    if (mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  }
+  // DD/MM/YYYY or DD.MM.YYYY
+  m = raw.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if (m) {
+    const dd=m[1], mo=m[2], yr=m[3];
+    if (parseInt(mo)>=1&&parseInt(mo)<=12)
+      return `${yr}-${String(mo).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  }
+  // YYYY/MM/DD
+  m = raw.match(/(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  return '';
+}
+
+function fmtDateKo(raw) {
+  if (!raw) return '-';
+  const iso = etaToISO(raw) || raw;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
+}
+
+/* ══════════════════════════════
+   D-day 태그
+══════════════════════════════ */
+function calcDday(etaRaw, days) {
+  if (!etaRaw || !days) return null;
+  const iso = etaToISO(etaRaw) || etaRaw;
+  const d = new Date(iso); if (isNaN(d.getTime())) return null;
+  d.setHours(0,0,0,0);
+  const t = new Date(); t.setHours(0,0,0,0);
+  const exp = new Date(d); exp.setDate(exp.getDate() + Number(days) - 1); // ETA 당일 포함
+  return Math.round((exp - t) / 86400000);
+}
+
+function ddayHtml(diff, small) {
+  const s = small ? 'font-size:10px;padding:1px 6px' : '';
+  if (diff === null) return `<span class="tag tag-grey" style="${s}">-</span>`;
+  if (diff > 3)  return `<span class="tag tag-ok" style="${s}">D-${diff}</span>`;
+  if (diff > 0)  return `<span class="tag tag-warn" style="${s}">D-${diff} 임박</span>`;
+  if (diff === 0) return `<span class="tag tag-over" style="${s}">오늘 만료</span>`;
+  return `<span class="tag tag-over" style="${s}">D+${Math.abs(diff)} 초과</span>`;
+}
+
+/* 만료일 + D-day 같이 표시 */
+function ddayWithDate(etaRaw, days) {
+  if (!etaRaw || !days) return '<span class="tag tag-grey" style="font-size:10px">-</span>';
+  const iso = etaToISO(etaRaw) || etaRaw;
+  const base = new Date(iso);
+  if (isNaN(base.getTime())) return '<span class="tag tag-grey" style="font-size:10px">-</span>';
+  base.setHours(0,0,0,0);
+  const exp = new Date(base);
+  exp.setDate(exp.getDate() + Number(days) - 1); // ETA 당일 포함
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff  = Math.round((exp - today) / 86400000);
+  const dateStr = exp.toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'});
+  const tag  = diff > 3 ? 'ok' : diff > 0 ? 'warn' : 'over';
+  const label = diff > 3 ? `D-${diff}` : diff > 0 ? `D-${diff} 임박` : diff === 0 ? '오늘' : `D+${Math.abs(diff)}`;
+  return `<div style="line-height:1.4">
+    <div style="font-size:11px;color:var(--text-2);white-space:nowrap">${dateStr}</div>
+    <span class="tag tag-${tag}" style="font-size:10px;padding:1px 6px">${label}</span>
+  </div>`;
+}
+
+function ddayTag(eta, cid, ftDays) {
+  const days = ftDays || ft[cid] || 5;
+  return ddayHtml(calcDday(eta, days), true);
+}
+
+/* ══════════════════════════════
+   BL 감지
+══════════════════════════════ */
+function detect(bl) {
+  if (!bl || bl.length < 3) return null;
+  return CARRIERS.find(c => c.pat && c.pat.some(p => p.test(bl))) || null;
+}
+
+function onBl() {
+  const raw = document.getElementById('bl').value.toUpperCase();
+  document.getElementById('bl').value = raw;
+  const bl    = raw.trim();
+  const badge = document.getElementById('bl-badge');
+  const hit   = detect(bl);
+
+  if (!bl || bl.length < 3) {
+    badge.className = 'bl-badge';
+    updateSaveForm(); return;
+  }
+  if (hit) {
+    badge.className = 'bl-badge found';
+    badge.textContent = '✓ ' + hit.name;
+    sel = hit.id;
+  } else {
+    badge.className = 'bl-badge unkn';
+    badge.textContent = '선사 미감지';
+  }
+  buildGrid();
+  updateSaveForm();
+}
+
+/* ══════════════════════════════
+   선사 그리드
+══════════════════════════════ */
+function buildGrid() {
+  const bl    = (document.getElementById('bl').value || '').trim();
+  const autoC = detect(bl);
+  document.getElementById('c-grid').innerHTML = CARRIERS.map(c => {
+    const isAuto = autoC && c.id === autoC.id;
+    const isSel  = c.id === sel;
+    let cls = 'c-card';
+    if (isSel && isAuto) cls += ' auto';
+    else if (isSel)      cls += ' sel';
+    const directTag = c.directBL ? ' &middot; <b style="color:#1a8a45">BL직접</b>' : '';
+    return `<div class="${cls}" onclick="pick('${c.id}')">
+      ${isAuto ? '<div class="auto-pill">자동감지</div>' : ''}
+      <div class="c-logo" style="background:${c.bg};color:${c.color}">${c.short}</div>
+      <div>
+        <div class="c-name">${c.name}</div>
+        <div class="c-ft">프리타임 ${ft[c.id]||c.ft}일${directTag}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function pick(id) {
+  sel = id;
+  buildGrid();
+  setMsg('', '');
+  updateSaveForm();
+}
+
+/* ══════════════════════════════
+   우측 저장 폼 업데이트
+══════════════════════════════ */
+function updateSaveForm() {
+  const bl = (document.getElementById('bl').value || '').trim();
+  const carrier = sel ? CARRIERS.find(x => x.id === sel) : null;
+
+  document.getElementById('save-bl-display').textContent = bl || '-';
+
+  const badge = document.getElementById('save-carrier-badge');
+  if (carrier) {
+    badge.style.display = 'flex';
+    const logo = document.getElementById('save-c-logo');
+    logo.style.background = carrier.bg;
+    logo.style.color      = carrier.color;
+    logo.textContent      = carrier.short;
+    document.getElementById('save-c-name').textContent = carrier.name;
+    if (!document.getElementById('sf-ft-carrier').value)
+      document.getElementById('sf-ft-carrier').value = ft[carrier.id] || carrier.ft;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // 기존 저장 여부에 따라 버튼 텍스트 변경
+  const saveBtn = document.querySelector('.save-form-card .btn');
+  if (saveBtn) {
+    const exists = bl && sel && ships.some(s => s.bl === bl && s.cid === sel);
+    saveBtn.innerHTML = exists
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 수정 저장`
+      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg> 목록에 저장`;
+  }
+
+  calcExpire();
+}
+
+/* ══════════════════════════════
+   ETA 파싱 이벤트
+══════════════════════════════ */
+function onEtaInput(el) {
+  const iso = etaToISO(el.value);
+  const p   = document.getElementById('sf-eta-parsed');
+  if (p) p.textContent = iso ? '→ ' + fmtDateKo(iso) : '';
+  calcExpire();
+}
+
+function onEtaPaste(ev) {
+  ev.preventDefault();
+  const raw = (ev.clipboardData || window.clipboardData).getData('text');
+  const input = document.getElementById('sf-eta');
+  input.value = raw;
+  const iso = etaToISO(raw);
+  const p   = document.getElementById('sf-eta-parsed');
+  if (p) {
+    p.textContent = iso ? '→ ' + fmtDateKo(iso) : '날짜 형식을 인식하지 못했습니다';
+    p.style.color = iso ? 'var(--green-fg)' : 'var(--red-fg)';
+  }
+  calcExpire();
+}
+
+function onEtaInputEdit(el, i) {
+  const iso = etaToISO(el.value);
+  const p   = document.getElementById('ef-eta-p-' + i);
+  if (p) p.textContent = iso ? '→ ' + fmtDateKo(iso) : '';
+}
+
+function onEtaPasteEdit(ev, i) {
+  ev.preventDefault();
+  const raw = (ev.clipboardData || window.clipboardData).getData('text');
+  ev.target.value = raw;
+  const iso = etaToISO(raw);
+  const p   = document.getElementById('ef-eta-p-' + i);
+  if (p) {
+    p.textContent = iso ? '→ ' + fmtDateKo(iso) : '날짜 형식 인식 불가';
+    p.style.color = iso ? 'var(--green-fg)' : 'var(--red-fg)';
+  }
+}
+
+function calcExpire() {
+  const etaRaw = document.getElementById('sf-eta').value;
+  const eta    = etaToISO(etaRaw) || etaRaw;
+  const ftC    = parseInt(document.getElementById('sf-ft-carrier').value) || 0;
+  const ftCy   = parseInt(document.getElementById('sf-ft-cy').value) || 0;
+
+  function showExpire(eta, days, elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!eta || !days) { el.textContent = ''; return; }
+    const diff = calcDday(eta, days);
+    if (diff === null) { el.textContent = ''; return; }
+    const d = new Date(etaToISO(eta) || eta);
+    d.setDate(d.getDate() + days - 1); // ETA 당일 포함
+    const dateStr = d.toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'});
+    const tag = diff > 3 ? 'ok' : diff > 0 ? 'warn' : 'over';
+    el.innerHTML = `→ ${dateStr} <span class="tag tag-${tag}" style="font-size:10px;padding:1px 6px">${diff > 0 ? 'D-'+diff : diff === 0 ? '오늘' : 'D+'+Math.abs(diff)}</span>`;
+  }
+  showExpire(eta, ftC,  'sf-ft-expire');
+  showExpire(eta, ftCy, 'sf-cy-expire');
+}
+
+/* ══════════════════════════════
+   조회 (선사 사이트 이동)
+══════════════════════════════ */
+function go() {
+  const bl = document.getElementById('bl').value.trim();
+  if (!bl)  { setMsg('B/L 번호를 입력해주세요', 'err'); return; }
+  if (!sel) { setMsg('선사를 선택해주세요', 'err'); return; }
+
+  const carrier = CARRIERS.find(x => x.id === sel);
+  const url     = carrier.urlFn(bl);
+
+  const logo = document.getElementById('r-logo');
+  logo.style.cssText = `background:${carrier.bg};color:${carrier.color};font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600`;
+  logo.textContent   = carrier.short;
+  document.getElementById('r-cname').textContent   = carrier.name + ' 추적';
+  document.getElementById('r-bl').textContent      = bl;
+  document.getElementById('r-copy-bl').textContent = bl;
+  document.getElementById('r-link').href           = url;
+  document.getElementById('r-btn-txt').textContent = carrier.name + ' 공식 사이트 열기';
+  document.getElementById('copy-guide').style.display        = 'none';
+  document.getElementById('copy-guide-manual').style.display = 'none';
+  document.getElementById('result-panel').classList.add('show');
+
+  if (carrier.directBL) {
+    // 직접 연결 선사: 클립보드 복사 없이 바로 이동, 안내 문구 변경
+    document.getElementById('copy-guide').style.display = 'block';
+    document.getElementById('copy-guide').innerHTML =
+      `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green-fg)"><polyline points="20 6 9 17 4 12"/></svg>
+       BL 번호가 자동 입력됩니다 — 바로 조회됩니다`;
+  } else {
+    // 미지원 선사: 기존처럼 클립보드 복사 + 붙여넣기 안내
+    navigator.clipboard.writeText(bl).then(() => {
+      document.getElementById('copy-guide').style.display = 'block';
+      document.getElementById('copy-guide').innerHTML =
+        `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+         BL 번호가 복사됐습니다 — 사이트에서 붙여넣기(Ctrl+V) 하세요`;
+    }).catch(() => {
+      document.getElementById('copy-guide-manual').style.display = 'block';
+    });
+  }
+
+  window.open(url, '_blank');
+  setTimeout(() => {
+    document.getElementById('result-panel').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 100);
+  setMsg(carrier.directBL
+    ? `${carrier.name} 추적 페이지로 이동했습니다.`
+    : `${carrier.name} 사이트가 열렸습니다. BL 번호를 붙여넣기(Ctrl+V) 하세요.`, 'ok');
+}
+
+function openSite(e) {
+  e.preventDefault();
+  const url = document.getElementById('r-link').href;
+  const bl  = document.getElementById('r-copy-bl').textContent;
+  navigator.clipboard.writeText(bl).catch(() => {});
+  window.open(url, '_blank');
+}
+
+function copyBl() {
+  const bl = document.getElementById('r-copy-bl').textContent;
+  navigator.clipboard.writeText(bl).then(() => {
+    const b = document.getElementById('copy-btn');
+    b.textContent = '복사됨 ✓';
+    setTimeout(() => b.textContent = '복사', 1500);
+  });
+}
+
+/* ══════════════════════════════
+   저장 (신규 / 수정)
+══════════════════════════════ */
+function saveInline() {
+  const bl = document.getElementById('bl').value.trim();
+  const sfNotice = (msg, err) => {
+    const n = document.getElementById('sf-notice');
+    n.textContent  = msg;
+    n.style.color  = err ? 'var(--red-fg)' : 'var(--green-fg)';
+    setTimeout(() => n.textContent = '', 3000);
+  };
+  if (!bl)  { sfNotice('BL 번호를 입력해주세요', true); return; }
+  if (!sel) { sfNotice('선사를 선택해주세요', true); return; }
+
+  const carrier = CARRIERS.find(x => x.id === sel);
+  const etaRaw  = document.getElementById('sf-eta').value;
+  const entry   = {
+    bl,
+    cid       : sel,
+    cname     : carrier.name,
+    eta       : etaToISO(etaRaw) || etaRaw || '',
+    ftCarrier : document.getElementById('sf-ft-carrier').value || '',
+    ftCy      : document.getElementById('sf-ft-cy').value || '',
+    cy        : document.getElementById('sf-cy').value.trim(),
+    qty40     : document.getElementById('sf-qty40').value || '',
+    qty20     : document.getElementById('sf-qty20').value || '',
+    memo      : document.getElementById('sf-memo').value.trim(),
+    cntrs     : parseCntrs(document.getElementById('sf-cntrs').value),
+    ts        : Date.now()
+  };
+
+  const existIdx = ships.findIndex(s => s.bl === bl && s.cid === sel);
+  if (existIdx >= 0) {
+    const prev = ships[existIdx];
+    ships[existIdx] = {
+      ...prev,
+      eta       : entry.eta       || prev.eta,
+      ftCarrier : entry.ftCarrier || prev.ftCarrier,
+      ftCy      : entry.ftCy      || prev.ftCy,
+      cy        : entry.cy        !== '' ? entry.cy   : prev.cy,
+      qty40     : entry.qty40 !== '' ? entry.qty40 : prev.qty40,
+      qty20     : entry.qty20 !== '' ? entry.qty20 : prev.qty20,
+      memo      : entry.memo      !== '' ? entry.memo : prev.memo,
+      cntrs     : entry.cntrs.length  ? entry.cntrs  : prev.cntrs || [],
+      ts        : Date.now()
+    };
+    persist(); updateCnt(); updateSaveForm();
+    sfNotice('✓ 수정됐습니다', false);
+  } else {
+    ships.unshift(entry);
+    persist(); updateCnt(); updateSaveForm();
+    sfNotice(`✓ 저장됐습니다 (총 ${ships.length}건)`, false);
+  }
+
+  // 폼 초기화
+  ['sf-eta','sf-ft-carrier','sf-ft-cy','sf-cy','sf-qty40','sf-qty20','sf-memo','sf-cntrs'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const ct = document.getElementById('sf-cntrs-tags');
+  if (ct) ct.innerHTML = '';
+  const p = document.getElementById('sf-eta-parsed');
+  if (p) p.textContent = '';
+  const fe = document.getElementById('sf-ft-expire');
+  if (fe) fe.textContent = '';
+  const ce = document.getElementById('sf-cy-expire');
+  if (ce) ce.textContent = '';
+}
+
+function save()          { saveInline(); }
+function modalClose()    {}
+function modalConfirm()  { saveInline(); }
+
+/* ══════════════════════════════
+   선택 모드
+══════════════════════════════ */
+function toggleSelMode() {
+  selMode = true; selSet.clear();
+  document.getElementById('sel-toggle-btn').style.display = 'none';
+  document.getElementById('sel-delete-btn').style.display = 'inline-flex';
+  document.getElementById('sel-cancel-btn').style.display = 'inline-flex';
+  document.getElementById('sel-count').textContent = '0';
+  renderList();
+}
+
+function cancelSelMode() {
+  selMode = false; selSet.clear();
+  document.getElementById('sel-toggle-btn').style.display = 'inline-flex';
+  document.getElementById('sel-delete-btn').style.display = 'none';
+  document.getElementById('sel-cancel-btn').style.display = 'none';
+  renderList();
+}
+
+function toggleSel(i) {
+  if (selSet.has(i)) selSet.delete(i); else selSet.add(i);
+  document.getElementById('sel-count').textContent = selSet.size;
+  renderList();
+}
+
+function deleteSelected() {
+  if (!selSet.size) { cancelSelMode(); return; }
+  if (!confirm(`선택한 ${selSet.size}건을 삭제할까요?`)) return;
+  ships = ships.filter((_, i) => !selSet.has(i));
+  persist(); updateCnt(); cancelSelMode();
+}
+
+/* ══════════════════════════════
+   목록 렌더링
+══════════════════════════════ */
+function renderList() {
+  const b = document.getElementById('list-body');
+  if (!ships.length) {
+    b.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><p>저장된 화물이 없습니다<br>화물 조회 탭에서 저장하세요</p></div>';
+    return;
+  }
+  const sorted = getSortedShips();
+  // 정렬 시 원본 인덱스 유지 (del/edit가 원본 ships 인덱스 필요)
+  const idxMap = sorted.map(s => ships.indexOf(s));
+  b.innerHTML = sorted.map((s, si) => {
+    const i = idxMap[si];
+    const carrier = CARRIERS.find(x => x.id === s.cid);
+    const url     = carrier ? carrier.urlFn(s.bl) : '#';
+    const isSel   = selSet.has(i);
+    const isEdit  = editIdx === i;
+
+    const chk = selMode
+      ? `<div class="chk-wrap" onclick="event.stopPropagation();toggleSel(${i})" title="선택">
+           <span class="chk-box ${isSel ? 'chk-checked' : ''}"></span>
+         </div>`
+      : `<span class="lt-chk"></span>`;
+
+    if (isEdit) {
+      return `<div class="list-edit-row" id="row-${i}">
+        <div style="font-size:12px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <div class="c-logo" style="width:22px;height:22px;border-radius:4px;font-size:8px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:${carrier?carrier.bg:'#eee'};color:${carrier?carrier.color:'#999'}">${carrier?carrier.short:'?'}</div>
+          <span>${s.cname}</span>
+          <span style="font-family:'IBM Plex Mono',monospace">${s.bl}</span>
+        </div>
+        <div class="edit-grid">
+          <div class="ef">
+            <div class="ef-label">ETA</div>
+            <input type="text" id="ef-eta-${i}" value="${s.eta ? fmtDateKo(s.eta) : ''}" placeholder="붙여넣기 또는 직접 입력" oninput="onEtaInputEdit(this,${i})" onpaste="onEtaPasteEdit(event,${i})" />
+            <div id="ef-eta-p-${i}" style="font-size:10px;color:var(--green-fg);min-height:14px;margin-top:2px;font-family:'IBM Plex Mono',monospace"></div>
+          </div>
+          <div class="ef">
+            <div class="ef-label">선사 프리타임 (일)</div>
+            <input type="number" id="ef-ftc-${i}" value="${s.ftCarrier||''}" min="1" max="30" placeholder="일" />
+          </div>
+          <div class="ef">
+            <div class="ef-label">CY 프리타임 (일)</div>
+            <input type="number" id="ef-ftcy-${i}" value="${s.ftCy||''}" min="1" max="30" placeholder="일" />
+          </div>
+          <div class="ef">
+            <div class="ef-label">입항 CY</div>
+            <select id="ef-cy-${i}" style="height:32px;font-size:13px;width:100%">
+              <option value="" ${!s.cy?'selected':''}>선택하세요</option>
+              <option value="ICT"   ${s.cy==='ICT' ?'selected':''}>ICT (인천컨테이너터미널 / PSA)</option>
+              <option value="E1CT"  ${s.cy==='E1CT' ?'selected':''}>E1CT (E1컨테이너터미널)</option>
+              <option value="HJIT"  ${s.cy==='HJIT' ?'selected':''}>HJIT (한진인천컨테이너터미널)</option>
+              <option value="SNCT"  ${s.cy==='SNCT' ?'selected':''}>SNCT (선광신컨테이너터미널)</option>
+              <option value="IFPC"  ${s.cy==='IFPC' ?'selected':''}>IFPC (인천국제여객부두터미널)</option>
+              <option value="경인항" ${s.cy==='경인항'?'selected':''}>경인항 (아라인천터미널)</option>
+            </select>
+          </div>
+          <div class="ef">
+            <div class="ef-label">컨테이너 수량</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:11px;font-weight:600;color:var(--text-2);width:28px">40F</span>
+                <input type="number" id="ef-qty40-${i}" value="${s.qty40||''}" min="0" max="999" placeholder="0" style="width:56px;text-align:center" />
+                <span style="font-size:12px;color:var(--text-3)">컨</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:11px;font-weight:600;color:var(--text-2);width:28px">20F</span>
+                <input type="number" id="ef-qty20-${i}" value="${s.qty20||''}" min="0" max="999" placeholder="0" style="width:56px;text-align:center" />
+                <span style="font-size:12px;color:var(--text-3)">컨</span>
+              </div>
+            </div>
+          </div>
+          <div class="ef" style="grid-column:1/-1">
+            <div class="ef-label">메모</div>
+            <input type="text" id="ef-memo-${i}" value="${s.memo||''}" maxlength="80" />
+          </div>
+          <div class="ef" style="grid-column:1/-1">
+            <div class="ef-label">컨테이너 번호</div>
+            <textarea id="ef-cntrs-${i}" rows="3"
+              placeholder="쉼표·공백·줄바꿈 모두 허용"
+              oninput="onCntrsInputEdit(${i})"
+              style="min-height:64px;font-family:'IBM Plex Mono',monospace;font-size:12px">${(s.cntrs||[]).join(', ')}</textarea>
+            <div id="ef-cntrs-tags-${i}" class="cntr-tags">${(s.cntrs||[]).map(c=>`<span class="cntr-tag">${c}</span>`).join('')}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="btn" style="height:32px;font-size:12px;padding:0 14px" onclick="saveEdit(${i})">갱신 저장</button>
+          <button class="btn-ghost" style="height:32px;font-size:12px;padding:0 12px" onclick="closeEdit()">취소</button>
+        </div>
+      </div>`;
+    }
+
+    const etaStr = s.eta ? fmtDateKo(s.eta) : '-';
+    const dC  = s.ftCarrier && s.eta ? ddayWithDate(s.eta, s.ftCarrier) : '<span class="tag tag-grey" style="font-size:10px">-</span>';
+    const dCy = s.ftCy && s.eta     ? ddayWithDate(s.eta, s.ftCy)      : '<span class="tag tag-grey" style="font-size:10px">-</span>';
+
+    return `<div class="list-table-row ${isSel ? 'sel-row' : ''}" id="row-${i}" ${selMode ? 'onclick="toggleSel(' + i + ')"' : ''}>
+      ${chk}
+      <div style="display:flex;align-items:center;gap:4px">
+        <div class="c-logo" style="width:22px;height:22px;border-radius:4px;font-size:8px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:${carrier?carrier.bg:'#eee'};color:${carrier?carrier.color:'#999'}">${carrier?carrier.short:'?'}</div>
+        <span style="font-size:11px;color:var(--text-2)">${s.cname}</span>
+      </div>
+      <div class="bl-text" style="font-size:12px">${s.bl}</div>
+      <div style="font-size:11px;color:var(--text);line-height:1.5;text-align:center">
+        ${s.qty40 ? '<span style="white-space:nowrap"><b>40F</b> '+s.qty40+'컨</span>' : ''}
+        ${s.qty40 && s.qty20 ? '<br>' : ''}
+        ${s.qty20 ? '<span style="white-space:nowrap"><b>20F</b> '+s.qty20+'컨</span>' : ''}
+        ${!s.qty40 && !s.qty20 ? '<span style="color:var(--text-3)">-</span>' : ''}
+      </div>
+      <div style="font-size:11px;white-space:nowrap">${etaStr}</div>
+      <div>${dC}</div>
+      <div>${dCy}</div>
+      <div style="font-size:11px;color:var(--text-2)">${s.cy||'-'}</div>
+      <div style="font-size:10px;color:var(--text-2);line-height:1.7">
+        ${(() => {
+          const list = s.cntrs || [];
+          if (!list.length) return '<span style="color:var(--text-3)">-</span>';
+          const first = list[0];
+          const rest  = list.slice(1);
+          const firstHtml = `<span class="cntr-tag" style="cursor:pointer" onclick="event.stopPropagation();copyCntr('${first}')" title="클릭하여 복사">${first}</span>`;
+          if (!rest.length) return firstHtml;
+          const restHtml = rest.map(c =>
+            `<span class="cntr-tag" style="cursor:pointer;display:block;margin-top:3px" onclick="event.stopPropagation();copyCntr('${c}')" title="클릭하여 복사">${c}</span>`
+          ).join('');
+          return `${firstHtml}<button class="cntr-tag" id="cntr-toggle-${i}" style="cursor:pointer;border-color:var(--accent);color:var(--accent);background:transparent;display:block;margin-top:3px" onclick="event.stopPropagation();toggleCntrs(${i})" title="모두 보기">+${rest.length}개 더보기</button><div id="cntr-more-${i}" style="display:none">${restHtml}</div>`;
+        })()}
+      </div>
+      <div style="font-size:11px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(s.memo||'').replace(/"/g,'&quot;')}">${s.memo||'-'}</div>
+      <div style="display:flex;gap:2px;flex-shrink:0">
+        <button class="btn-ghost" style="width:26px;height:26px;padding:0;justify-content:center" onclick="event.stopPropagation();openEdit(${i})" title="수정">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-ghost" style="width:26px;height:26px;padding:0;justify-content:center" onclick="event.stopPropagation();goList(${i})" title="선사 이동">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+        <button class="btn-ghost" style="width:26px;height:26px;padding:0;justify-content:center" onclick="event.stopPropagation();openUnipassList(${i})" title="유니패스 조회">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        ${s.cy ? `<button class="btn-ghost" style="width:26px;height:26px;padding:0;justify-content:center;position:relative" onclick="event.stopPropagation();openCyFreetime(${i})" title="CY 프리타임 조회 (${s.cy}) — 컨테이너 번호 복사됨">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          ${(s.cntrs||[]).length ? `<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:8px;font-weight:700;border-radius:999px;width:13px;height:13px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace">${s.cntrs.length}</span>` : ''}
+        </button>` : ''}
+        ${selMode ? '' : `<button class="btn-ghost btn-danger" style="width:26px;height:26px;padding:0;justify-content:center" onclick="event.stopPropagation();del(${i})" title="삭제">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function goList(i) {
+  const s       = ships[i];
+  const carrier = CARRIERS.find(x => x.id === s.cid);
+  const url     = carrier ? carrier.urlFn(s.bl) : '#';
+  if (carrier && !carrier.directBL) {
+    navigator.clipboard.writeText(s.bl).then(() => {
+      showToast(`BL 복사됨 — 사이트에서 붙여넣기(Ctrl+V) 하세요`);
+    }).catch(() => {});
+  } else {
+    showToast(`${carrier ? carrier.name : ''} 추적 페이지로 이동합니다`);
+  }
+  window.open(url, '_blank');
+}
+
+function openEdit(i)  { editIdx = i;  renderList(); }
+function closeEdit()  { editIdx = -1; renderList(); }
+
+function saveEdit(i) {
+  const raw = document.getElementById('ef-eta-' + i).value;
+  ships[i].eta       = etaToISO(raw) || raw;
+  ships[i].ftCarrier = document.getElementById('ef-ftc-'  + i).value;
+  ships[i].ftCy      = document.getElementById('ef-ftcy-' + i).value;
+  ships[i].cy        = document.getElementById('ef-cy-'   + i).value.trim();
+  ships[i].qty40     = document.getElementById('ef-qty40-' + i).value;
+  ships[i].qty20     = document.getElementById('ef-qty20-' + i).value;
+  ships[i].memo      = document.getElementById('ef-memo-' + i).value.trim();
+  const cntrsEl      = document.getElementById('ef-cntrs-' + i);
+  if (cntrsEl) ships[i].cntrs = parseCntrs(cntrsEl.value);
+  ships[i].ts        = Date.now();
+  persist(); editIdx = -1; renderList();
+}
+
+function setEta(i, v)        { ships[i].eta = etaToISO(v) || v; persist(); renderList(); }
+function setField(i, k, v)   { ships[i][k] = v; persist(); renderList(); }
+function del(i)               { if (confirm(`"${ships[i].bl}" 을 삭제할까요?`)) { ships.splice(i, 1); persist(); renderList(); updateCnt(); } }
+function clearAll()           { if (confirm('전체 삭제할까요?')) { ships = []; persist(); renderList(); updateCnt(); } }
+
+/* ══════════════════════════════
+   프리타임 설정
+══════════════════════════════ */
+function buildFT() {
+  document.getElementById('ft-body').innerHTML = CARRIERS.map(c => `
+    <div class="ft-row">
+      <div style="width:24px;height:24px;border-radius:4px;font-size:8px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;flex-shrink:0">${c.short}</div>
+      <label>${c.name}</label>
+      <input type="number" min="1" max="30" value="${ft[c.id]||c.ft}" data-id="${c.id}" style="height:34px" />
+      <span style="font-size:12px;color:var(--text-3)">일</span>
+    </div>`).join('');
+}
+
+function saveFT() {
+  document.querySelectorAll('#ft-body input[data-id]').forEach(el => {
+    ft[el.dataset.id] = parseInt(el.value) || 5;
+  });
+  localStorage.setItem('ft_v3', JSON.stringify(ft));
+  buildGrid();
+  const ok = document.getElementById('ft-ok');
+  ok.textContent = '✓ 저장됨';
+  setTimeout(() => ok.textContent = '', 2500);
+}
+
+/* ══════════════════════════════
+   공통 유틸
+══════════════════════════════ */
+function persist()   { localStorage.setItem('ships_v3', JSON.stringify(ships)); updateHeaderAlert(); }
+function updateCnt() { document.getElementById('cnt').textContent = ships.length || '0'; updateHeaderAlert(); }
+
+/* ══════════════════════════════
+   헤더 D-day 알림 배지
+══════════════════════════════ */
+function updateHeaderAlert() {
+  const el = document.getElementById('header-alert');
+  if (!el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let overdue = 0, urgent = 0;
+  ships.forEach(s => {
+    const days = [
+      { ft: s.ftCarrier, label: '선사' },
+      { ft: s.ftCy,      label: 'CY'  }
+    ];
+    days.forEach(({ ft }) => {
+      if (!ft || !s.eta) return;
+      const diff = calcDday(s.eta, ft);
+      if (diff === null) return;
+      if (diff < 0) overdue++;
+      else if (diff <= 3) urgent++;
+    });
+  });
+
+  if (overdue === 0 && urgent === 0) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+
+  let html = '';
+  if (overdue > 0) {
+    html += `<span style="background:var(--red-bg);color:var(--red-fg);padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600">⚠ 초과 ${overdue}건</span>`;
+  }
+  if (urgent > 0) {
+    html += `<span style="background:var(--yellow-bg);color:var(--yellow-fg);padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600">⏰ 임박 ${urgent}건</span>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ══════════════════════════════
+   CSV 내보내기
+══════════════════════════════ */
+function exportCSV() {
+  if (!ships.length) { alert('저장된 화물이 없습니다.'); return; }
+
+  const headers = ['선사','B/L번호','40F(컨)','20F(컨)','ETA','선사프리타임(일)','선사만료일','선사D-day','CY프리타임(일)','CY만료일','CY_D-day','입항CY','컨테이너번호','메모'];
+
+  function expireDate(etaRaw, days) {
+    if (!etaRaw || !days) return '';
+    const iso = etaToISO(etaRaw) || etaRaw;
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    d.setDate(d.getDate() + Number(days) - 1);
+    return d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+  function ddayText(etaRaw, days) {
+    const diff = calcDday(etaRaw, days);
+    if (diff === null) return '';
+    if (diff > 0) return `D-${diff}`;
+    if (diff === 0) return '오늘만료';
+    return `D+${Math.abs(diff)}초과`;
+  }
+
+  const rows = ships.map(s => [
+    s.cname,
+    s.bl,
+    s.qty40 || '',
+    s.qty20 || '',
+    s.eta ? fmtDateKo(s.eta) : '',
+    s.ftCarrier || '',
+    expireDate(s.eta, s.ftCarrier),
+    ddayText(s.eta, s.ftCarrier),
+    s.ftCy || '',
+    expireDate(s.eta, s.ftCy),
+    ddayText(s.eta, s.ftCy),
+    s.cy || '',
+    (s.cntrs||[]).join(' / '),
+    s.memo || ''
+  ]);
+
+  const bom = '\uFEFF'; // BOM for Excel UTF-8
+  const csv = bom + [headers, ...rows]
+    .map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'-').replace('.','');
+  a.href     = url;
+  a.download = `화물목록_${date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════
+   CSV 가져오기
+══════════════════════════════ */
+function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = ''; // 같은 파일 재업로드 허용
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let text = e.target.result;
+      // BOM 제거
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+      const lines  = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { alert('데이터가 없습니다.'); return; }
+
+      // 헤더 파싱 (컬럼 위치 동적 감지)
+      const headers = parseCSVRow(lines[0]).map(h => h.trim());
+      const idx = {
+        cname     : headers.indexOf('선사'),
+        bl        : headers.indexOf('B/L번호'),
+        qty40     : headers.indexOf('40F(컨)'),
+        qty20     : headers.indexOf('20F(컨)'),
+        eta       : headers.indexOf('ETA'),
+        ftCarrier : headers.indexOf('선사프리타임(일)'),
+        ftCy      : headers.indexOf('CY프리타임(일)'),
+        cy        : headers.indexOf('입항CY'),
+        cntrs     : headers.indexOf('컨테이너번호'),
+        memo      : headers.indexOf('메모'),
+      };
+
+      if (idx.bl < 0) { alert('올바른 형식의 CSV 파일이 아닙니다.\n(내보내기로 생성한 파일을 사용하세요)'); return; }
+
+      let added = 0, updated = 0, skipped = 0;
+      const errors = [];
+
+      lines.slice(1).forEach((line, rowIdx) => {
+        if (!line.trim()) return;
+        const cols = parseCSVRow(line);
+        const get  = i => (i >= 0 && cols[i] !== undefined) ? cols[i].trim() : '';
+
+        const bl = get(idx.bl);
+        if (!bl) { skipped++; return; }
+
+        // 선사 매칭: 이름으로 찾기
+        const cname   = get(idx.cname);
+        const carrier = CARRIERS.find(c =>
+          c.name.toLowerCase() === cname.toLowerCase() ||
+          c.short.toLowerCase() === cname.toLowerCase()
+        ) || detect(bl);
+
+        if (!carrier) {
+          errors.push(`행 ${rowIdx+2}: "${bl}" — 선사 미확인 (건너뜀)`);
+          skipped++;
+          return;
+        }
+
+        // ETA ISO 변환
+        const etaRaw = get(idx.eta);
+        const eta    = etaToISO(etaRaw) || etaRaw || '';
+
+        // 컨테이너번호: " / " 구분 → 배열
+        const cntrRaw = get(idx.cntrs);
+        const cntrs   = cntrRaw
+          ? cntrRaw.split(/\s*\/\s*|\s*,\s*|\n/).map(s=>s.trim().toUpperCase()).filter(s=>s.length>=10&&/^[A-Z]{4}\d/.test(s))
+          : [];
+
+        const entry = {
+          bl,
+          cid       : carrier.id,
+          cname     : carrier.name,
+          eta,
+          ftCarrier : get(idx.ftCarrier) || String(ft[carrier.id] || carrier.ft),
+          ftCy      : get(idx.ftCy) || '',
+          cy        : get(idx.cy),
+          qty40     : get(idx.qty40),
+          qty20     : get(idx.qty20),
+          memo      : get(idx.memo),
+          cntrs,
+          ts        : Date.now(),
+        };
+
+        // 동일 BL이 이미 있으면 덮어쓰기, 없으면 추가
+        const existIdx = ships.findIndex(s => s.bl === bl && s.cid === carrier.id);
+        if (existIdx >= 0) {
+          ships[existIdx] = { ...ships[existIdx], ...entry };
+          updated++;
+        } else {
+          ships.push(entry);
+          added++;
+        }
+      });
+
+      persist();
+      renderList();
+      updateCnt();
+
+      // 결과 안내
+      let msg = `가져오기 완료\n`;
+      if (added)   msg += `• 신규 추가: ${added}건\n`;
+      if (updated) msg += `• 업데이트: ${updated}건\n`;
+      if (skipped) msg += `• 건너뜀: ${skipped}건`;
+      if (errors.length) msg += `\n\n경고:\n` + errors.slice(0,5).join('\n');
+      if (errors.length > 5) msg += `\n...외 ${errors.length-5}건`;
+      alert(msg.trim());
+      nav('list');
+
+    } catch(err) {
+      alert('CSV 파싱 중 오류가 발생했습니다.\n' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// CSV 한 행 파싱 (따옴표 안의 쉼표 처리)
+function parseCSVRow(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function setMsg(m, cls) {
+  const el = document.getElementById('notice');
+  el.textContent = m || 'BL 번호를 입력하면 선사가 자동 감지됩니다';
+  el.className   = 'notice' + (cls ? ' ' + cls : '');
+}
+
+/* ══════════════════════════════
+   CY 프리타임 조회
+   각 터미널별 최적 방식 적용
+══════════════════════════════ */
+const CY_CONFIG = {
+  // ICT: 로그인 필요 → 전체 컨번호 클립보드 복사
+  'ICT': {
+    url: 'https://service.psa-ict.co.kr/container/search',
+    method: 'clipboard', label: 'ICT'
+  },
+  // E1CT: URL GET 파라미터 cntrNo= 직접 전달 시도
+  'E1CT': {
+    urlFn: c => `http://www.e1ct.co.kr/info/cntrInfo/details?cntrNo=${encodeURIComponent(c)}`,
+    method: 'url', label: 'E1CT'
+  },
+  // HJIT: FreeDayView cntrNo= GET 파라미터 직접 지원
+  'HJIT': {
+    urlFn: c => `http://59.17.254.10:9130/esvc/ers/ErsAction.do?cmd=FreeDayView&cntrNo=${encodeURIComponent(c)}`,
+    method: 'url', label: 'HJIT'
+  },
+  // SNCT: Smart Billing BL번호 탭 → URL 파라미터 + BL번호 클립보드 복사
+  'SNCT': {
+    urlFn: (bl) => `https://snct.sun-kwang.co.kr/sbs/index.jsp?pName=free&searchGbn=BL&blNo=${encodeURIComponent(bl)}`,
+    method: 'snct', label: 'SNCT'
+  },
+  // IFPC / 경인항: iCON 통합 → 클립보드 복사
+  'IFPC': {
+    url: 'https://scon.icpa.or.kr/main.do?menuKey=176',
+    method: 'clipboard', label: 'IFPC'
+  },
+  '경인항': {
+    url: 'https://scon.icpa.or.kr/main.do?menuKey=176',
+    method: 'clipboard', label: '경인항'
+  },
+};
+
+function openCyFreetime(i) {
+  const s     = ships[i];
+  const cfg   = CY_CONFIG[s.cy];
+  if (!cfg) { alert('해당 CY의 프리타임 조회 링크가 없습니다.'); return; }
+
+  const cntrs = (s.cntrs && s.cntrs.length) ? s.cntrs : [];
+  const first = cntrs[0] || '';
+
+  if (cfg.method === 'url') {
+    // E1CT, HJIT: 첫 번째 컨번호 URL 파라미터 직접 전달 + 클립보드 복사
+    navigator.clipboard.writeText(first || s.bl).catch(() => {});
+    const url = cfg.urlFn(first);
+    window.open(url, '_blank');
+    showToast(first
+      ? `${cfg.label} → ${first}\nURL 직접 전달 + 클립보드 복사됨`
+      : `${cfg.label} 조회 페이지 열림`);
+
+  } else if (cfg.method === 'snct') {
+    // SNCT: BL번호로 URL 직접 전달 + BL번호 클립보드 복사 + textarea 자동입력 시도
+    const url = cfg.urlFn(s.bl);
+    navigator.clipboard.writeText(s.bl).catch(() => {});
+    const win = window.open(url, '_blank');
+    if (!win) { showToast('팝업이 차단됐습니다. 허용 후 다시 시도하세요.'); return; }
+    const inject = `(function t(n){
+      var el=document.querySelector('input[name=blNo],input[id=blNo],textarea');
+      if(el){el.value=${JSON.stringify(s.bl)};el.dispatchEvent(new Event('input'));el.dispatchEvent(new Event('change'));}
+      else if(n>0) setTimeout(function(){t(n-1);},400);
+    })(15);`;
+    setTimeout(() => { try { win.eval(inject); } catch(e) {} }, 1800);
+    showToast(`SNCT 무료장치일 조회\nBL: ${s.bl} 복사됨 — Ctrl+V 또는 자동입력`);
+
+  } else {
+    // ICT, IFPC 등: 첫 번째 컨번호 복사 + 사이트 열기 (없으면 BL 복사)
+    navigator.clipboard.writeText(first || s.bl).catch(() => {});
+    window.open(cfg.url, '_blank');
+    showToast(first
+      ? `${cfg.label}\n${first} 복사됨 — 붙여넣기(Ctrl+V)`
+      : `${cfg.label} 조회 페이지 열림`);
+  }
+}
+
+function openUnipass() {
+  const bl = (document.getElementById('bl').value || '').trim();
+  navigator.clipboard.writeText(bl).catch(() => {});
+  const year = new Date().getFullYear();
+  const url = bl
+    ? `https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450&mblNo=${encodeURIComponent(bl)}&blYy=${year}`
+    : 'https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450';
+  window.open(url, '_blank');
+  if (bl) setMsg('유니패스 수입화물 진행정보로 이동했습니다.', 'ok');
+}
+
+function openUnipassList(i) {
+  const bl   = ships[i].bl || '';
+  const year = ships[i].eta ? ships[i].eta.slice(0,4) : new Date().getFullYear();
+  navigator.clipboard.writeText(bl).catch(() => {});
+  const url = bl
+    ? `https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450&mblNo=${encodeURIComponent(bl)}&blYy=${year}`
+    : 'https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450';
+  window.open(url, '_blank');
+}
+
+/* ══════════════════════════════
+   컨테이너 번호 파싱 & UI
+══════════════════════════════ */
+function parseCntrs(raw) {
+  if (!raw) return [];
+  // 쉼표, 공백(스페이스·탭·줄바꿈) 모두 구분자로 처리
+  return raw.split(/[\s,]+/)
+    .map(s => s.toUpperCase().trim())
+    .filter(s => s.length >= 10 && /^[A-Z]{4}\d/.test(s)); // 기본 컨테이너 번호 형식
+}
+
+function onCntrsInput() {
+  const raw  = document.getElementById('sf-cntrs').value;
+  const list = parseCntrs(raw);
+  const el   = document.getElementById('sf-cntrs-tags');
+  if (el) {
+    el.innerHTML = list.length
+      ? list.map(c => `<span class="cntr-tag">${c}</span>`).join('')
+      : '';
+  }
+  // 컨테이너 수량 자동 입력 (40F 우선, 기존 값 없을 때만)
+  if (list.length) {
+    const qty40El = document.getElementById('sf-qty40');
+    const qty20El = document.getElementById('sf-qty20');
+    const cur40 = parseInt(qty40El.value) || 0;
+    const cur20 = parseInt(qty20El.value) || 0;
+    // 둘 다 비어있으면 전체 개수를 40F에 자동 입력
+    if (!cur40 && !cur20) {
+      qty40El.value = list.length;
+    }
+  }
+}
+
+function onCntrsInputEdit(i) {
+  const raw  = document.getElementById('ef-cntrs-' + i).value;
+  const list = parseCntrs(raw);
+  const el   = document.getElementById('ef-cntrs-tags-' + i);
+  if (el) {
+    el.innerHTML = list.length
+      ? list.map(c => `<span class="cntr-tag">${c}</span>`).join('')
+      : '';
+  }
+  // 수량 자동 입력
+  if (list.length) {
+    const qty40El = document.getElementById('ef-qty40-' + i);
+    const qty20El = document.getElementById('ef-qty20-' + i);
+    if (qty40El && qty20El) {
+      const cur40 = parseInt(qty40El.value) || 0;
+      const cur20 = parseInt(qty20El.value) || 0;
+      if (!cur40 && !cur20) {
+        qty40El.value = list.length;
+      }
+    }
+  }
+}
+
+function copyCntr(cntr) {
+  navigator.clipboard.writeText(cntr).then(() => {
+    showToast(`${cntr} 복사됨`);
+  }).catch(() => {});
+}
+
+function toggleCntrs(i) {
+  const more   = document.getElementById('cntr-more-' + i);
+  const toggle = document.getElementById('cntr-toggle-' + i);
+  if (!more || !toggle) return;
+  const expanded = more.style.display !== 'none';
+  more.style.display = expanded ? 'none' : 'block';
+  const restCount = (ships[i].cntrs || []).length - 1;
+  toggle.textContent = expanded ? `+${restCount}개 더보기` : '접기';
+}
+
+/* ══════════════════════════════
+   토스트 메시지
+══════════════════════════════ */
+function showToast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.style.cssText = `
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:#1a1916; color:#fff; font-family:'IBM Plex Sans KR',sans-serif;
+      font-size:13px; padding:10px 18px; border-radius:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,.18); z-index:9999;
+      transition:opacity .2s; pointer-events:none; white-space:pre-line; text-align:center;
+    `;
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+}
+let sortKey = 'eta';   // 'eta' | 'ftCarrier' | 'ftCy'
+let sortDir = 'asc';  // 'asc' | 'desc'
+
+function sortBy(key) {
+  if (sortKey === key) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey = key;
+    sortDir = 'asc';
+  }
+  updateSortIcons();
+  renderList();
+}
+
+function updateSortIcons() {
+  ['eta','ftCarrier','ftCy'].forEach(k => {
+    const el = document.getElementById('sort-icon-' + k);
+    if (!el) return;
+    if (k === sortKey) {
+      el.textContent = sortDir === 'asc' ? '↑' : '↓';
+      el.className = 'sort-icon ' + sortDir;
+    } else {
+      el.textContent = '↕';
+      el.className = 'sort-icon';
+    }
+  });
+}
+
+/* 정렬 기준값 계산: 만료일을 ms로 반환 (없으면 Infinity) */
+function sortValue(s, key) {
+  if (key === 'eta') {
+    if (!s.eta) return Infinity;
+    const iso = etaToISO(s.eta) || s.eta;
+    const d = new Date(iso);
+    return isNaN(d) ? Infinity : d.getTime();
+  }
+  // ftCarrier / ftCy: ETA + 프리타임 일수의 만료일
+  const days = Number(s[key]);
+  if (!days || !s.eta) return Infinity;
+  const iso = etaToISO(s.eta) || s.eta;
+  const d = new Date(iso);
+  if (isNaN(d)) return Infinity;
+  return d.getTime() + days * 86400000;
+}
+
+function getSortedShips() {
+  if (!sortKey) return ships;
+  return [...ships].sort((a, b) => {
+    const va = sortValue(a, sortKey);
+    const vb = sortValue(b, sortKey);
+    // Infinity(값 없음)는 항상 뒤로
+    if (va === Infinity && vb === Infinity) return 0;
+    if (va === Infinity) return 1;
+    if (vb === Infinity) return -1;
+    return sortDir === 'asc' ? va - vb : vb - va;
+  });
+}
+
+function nav(p) {
+  ['track', 'list', 'ft'].forEach(x => {
+    document.getElementById('p-' + x).style.display = x === p ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('on', ['track','list','ft'][i] === p);
+  });
+  if (p === 'list') { updateSortIcons(); renderList(); }
+  if (p === 'ft')   buildFT();
+}
+
+/* ══════════════════════════════
+   초기화
+══════════════════════════════ */
+buildGrid();
+updateCnt();
+updateSaveForm();
+updateHeaderAlert();
+
+['sf-eta','sf-ft-carrier','sf-ft-cy'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => {
+    if (id === 'sf-eta') onEtaInput(el);
+    else calcExpire();
+  });
+});
+</script>
+</body>
+</html>
