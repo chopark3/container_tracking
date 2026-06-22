@@ -812,6 +812,10 @@ const CARRIERS = [
   { id:'hede',     name:'Hede',        short:'HEDE', color:'#6a1b9a', bg:'#f3e5f5', directBL:false,
     urlFn: b => `http://elines.hedehk.com/cargoDynamicEN`,
     pat: [/^HHINC/i,/^HHIE/i,/^HHI/i], ft:5 },
+  { id:'sofast',   name:'SoFast Korea', short:'SOFA', color:'#b34700', bg:'#fde9d8', directBL:false,
+    // Hede와 연계 노선 사용 — 화물추적은 Hede 사이트에서 조회
+    urlFn: b => `http://elines.hedehk.com/cargoDynamicEN`,
+    pat: [/^SOFU/i,/^SFKU/i,/^SOFA/i], ft:5 },
   { id:'goldstar', name:'Gold Star Line', short:'GSL', color:'#b8860b', bg:'#fef9e0', directBL:true,
     urlFn: b => `https://www.gslserver.com/en/trackingSearch.do?searchType=BL&blNo=${encodeURIComponent(b)}`,
     pat: [/^GSLU/i,/^GSLR/i,/^GSLN/i,/^GSL/i], ft:5 },
